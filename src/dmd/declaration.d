@@ -268,14 +268,14 @@ enum STC : ulong
 enum STCStorageClass =
     (STC.auto_ | STC.scope_ | STC.static_ | STC.extern_ | STC.const_ | STC.final_ | STC.abstract_ | STC.synchronized_ |
      STC.deprecated_ | STC.future | STC.override_ | STC.lazy_ | STC.alias_ | STC.out_ | STC.in_ | STC.manifest |
-     STC.immutable_ | STC.shared_ | STC.wild | STC.nothrow_ | STC.nogc | STC.pure_ | STC.ref_ | STC.return_ | STC.tls | STC.gshared |
+     STC.immutable_ | STC.shared_ | STC.wild | STC.nothrow_ | STC.nogc | STC.pure_ | STC.ref_ | STC.return_ | STC.gshared |
      STC.property | STC.safeGroup | STC.disable | STC.local | STC.live);
 
 /* These storage classes "flow through" to the inner scope of a Dsymbol
  */
 enum STCFlowThruAggregate = STC.safeGroup;    /// for an AggregateDeclaration
 enum STCFlowThruFunction = ~(STC.auto_ | STC.scope_ | STC.static_ | STC.extern_ | STC.abstract_ | STC.deprecated_ | STC.override_ |
-                         STC.TYPECTOR | STC.final_ | STC.tls | STC.gshared | STC.ref_ | STC.return_ | STC.property |
+                         STC.TYPECTOR | STC.final_ | STC.gshared | STC.ref_ | STC.return_ | STC.property |
                          STC.nothrow_ | STC.pure_ | STC.safe | STC.trusted | STC.system); /// for a FuncDeclaration
 
 /* Accumulator for successive matches.
@@ -1193,7 +1193,7 @@ extern (C++) class VarDeclaration : Declaration
 
         if (!isField())
             return;
-        assert(!(storage_class & (STC.static_ | STC.extern_ | STC.parameter | STC.tls)));
+        assert(!(storage_class & (STC.static_ | STC.extern_ | STC.parameter)));
 
         //printf("+VarDeclaration::setFieldOffset(ad = %s) %s\n", ad.toChars(), toChars());
 
@@ -1264,7 +1264,7 @@ extern (C++) class VarDeclaration : Declaration
 
     override final inout(AggregateDeclaration) isThis() inout
     {
-        if (!(storage_class & (STC.static_ | STC.extern_ | STC.manifest | STC.templateparameter | STC.tls | STC.gshared | STC.ctfe)))
+        if (!(storage_class & (STC.static_ | STC.extern_ | STC.manifest | STC.templateparameter | STC.gshared | STC.ctfe)))
         {
             /* The casting is necessary because `s = s.parent` is otherwise rejected
              */
@@ -1332,7 +1332,7 @@ extern (C++) class VarDeclaration : Declaration
                 error("forward referenced");
                 type = Type.terror;
             }
-            else if (storage_class & (STC.static_ | STC.extern_ | STC.tls | STC.gshared) ||
+            else if (storage_class & (STC.static_ | STC.extern_ | STC.gshared) ||
                 parent.isModule() || parent.isTemplateInstance() || parent.isNspace())
             {
                 assert(!isParameter() && !isResult());

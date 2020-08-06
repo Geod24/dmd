@@ -1368,9 +1368,9 @@ final class Parser(AST) : Lexer
             if (u & (u - 1))
                 error("conflicting attribute `%s`", Token.toChars(token.value));
         }
-        if (stc & (STC.gshared | STC.shared_ | STC.tls))
+        if (stc & (STC.gshared | STC.shared_))
         {
-            StorageClass u = storageClass & (STC.gshared | STC.shared_ | STC.tls);
+            StorageClass u = storageClass & (STC.gshared | STC.shared_);
             if (u & (u - 1))
                 error("conflicting attribute `%s`", Token.toChars(token.value));
         }

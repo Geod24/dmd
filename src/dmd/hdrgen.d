@@ -2761,7 +2761,6 @@ string stcToString(ref StorageClass stc)
         SCstring(STC.pure_, TOK.pure_),
         SCstring(STC.ref_, TOK.ref_),
         SCstring(STC.return_, TOK.return_),
-        SCstring(STC.tls),
         SCstring(STC.gshared, TOK.gshared),
         SCstring(STC.nogc, TOK.at, "@nogc"),
         SCstring(STC.property, TOK.at, "@property"),
@@ -2780,8 +2779,6 @@ string stcToString(ref StorageClass stc)
         if (stc & tbl)
         {
             stc &= ~tbl;
-            if (tbl == STC.tls) // TOKtls was removed
-                return "__thread";
             TOK tok = table[i].tok;
             if (tok != TOK.at && !table[i].id.length)
                 table[i].id = Token.toString(tok); // lazilly initialize table

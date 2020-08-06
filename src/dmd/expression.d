@@ -1367,6 +1367,16 @@ extern (C++) abstract class Expression : ASTNode
         //printf("Expression::checkReadModifyWrite() %s %s", toChars(), ex ? ex.toChars() : "");
         if (!type || !type.isShared() || type.isTypeStruct() || type.isTypeClass())
             return false;
+        // Note: This is a kludge to support gate variables in the shared static
+        // constructors / destructors.
+        // Ideally it should be supported properly, by allowing shared static
+        // constructors / destructors to access shared (and `__gshared in @safe`
+        // code) variables without synchronization.
+        // See https://issues.dlang.org/show_bug.cgi?id=21147
+        if (auto ve = this.isVarExp())
+            if (ve.var.storage_class & STC.temp)
+                return false;
+
 
         // atomicOp uses opAssign (+=/-=) rather than opOp (++/--) for the CT string literal.
         switch (rmwOp)
