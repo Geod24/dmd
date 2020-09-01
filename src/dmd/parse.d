@@ -1376,13 +1376,16 @@ final class Parser(AST) : Lexer
         {
             if (added & STC.const_)
                 error("attribute `const` is redundant with previously-applied `in`");
-            else if (global.params.previewIn)
-            {
-                error("attribute `%s` is redundant with previously-applied `in`",
-                      (orig & STC.scope_) ? "scope".ptr : "ref".ptr);
-            }
-            else
+            // `scope` is redundant, suggests to use the switch
+            else if (!global.params.previewIn)
                 error("attribute `scope` cannot be applied with `in`, use `-preview=in` instead");
+            // `-preview=in` is used, check if `scope`
+            else if (added & STC.scope_)
+                error("attribute `scope` is redundant with previously-applied `in`");
+            // Otherwise, allow `auto ref in` for the sake of transitioning
+            else if (!(orig & STC.auto_))
+                error("attribute `ref` is redundant with previously-applied `in`");
+
             return orig;
         }
 
@@ -1390,15 +1393,16 @@ final class Parser(AST) : Lexer
         {
             if (orig & STC.const_)
                 error("attribute `in` cannot be added after `const`: remove `const`");
-            else if (global.params.previewIn)
-            {
-                // Windows `printf` does not support `%1$s`
-                const(char*) stc_str = (orig & STC.scope_) ? "scope".ptr : "ref".ptr;
-                error("attribute `in` cannot be added after `%s`: remove `%s`",
-                      stc_str, stc_str);
-            }
-            else
+            // Same logic as the previous block, but different error messages
+            // for better UX
+            else if (!global.params.previewIn)
                 error("attribute `in` cannot be added after `scope`: remove `scope` and use `-preview=in`");
+            else if (orig & STC.scope_)
+                error("attribute `in` cannot be added after `scope`: remove `scope`");
+            // Only ref left
+            else if (!(orig & STC.auto_))
+                error("attribute `in` cannot be added after `ref`: remove `ref`");
+
             return orig;
         }
 

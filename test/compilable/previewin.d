@@ -64,3 +64,7 @@ void checkTemporary()
 LError:
     assert(0);
 }
+
+// Accept `in auto ref` and `auto ref in` as a mean to transition
+void testAutoRefIn (T) (auto ref in T value) {}
+void testInAutoRef (T) (in auto ref T value) {}

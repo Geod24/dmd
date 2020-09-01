@@ -1378,6 +1378,15 @@ extern(C++) Type typeSemantic(Type type, const ref Loc loc, Scope* sc)
                     continue;
                 }
 
+                // If `-preview=in` is used, allow `in auto ref` for the time being
+                if (global.params.previewIn &&
+                    (fparam.storageClass & (STC.auto_ | STC.ref_ | STC.in_)) ==
+                    (STC.auto_ | STC.ref_ | STC.in_))
+                {
+                    // TODO: Deprecate in the future
+                    fparam.storageClass ^= (STC.auto_ | STC.ref_);
+                }
+
                 if (t.ty == Tfunction)
                 {
                     .error(loc, "cannot have parameter of function type `%s`", fparam.type.toChars());
