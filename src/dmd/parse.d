@@ -1291,7 +1291,16 @@ class Parser(AST, Lexer = dmd.lexer.Lexer) : Lexer
         {
             // If we find a builtin attribute, we're done, return immediately.
             if (StorageClass stc = isBuiltinAtAttribute(token.ident))
+            {
+                // Disabled message can take an optional message
+                if (stc == AST.STC.disable && peekNext() == TOK.leftParentheses)
+                {
+                    check(TOK.leftParentheses);
+                    AST.Expression msg = parseAssignExp();
+                    check(TOK.rightParentheses);
+                }
                 return stc;
+            }
 
             // Allow identifier, template instantiation, or function call
             // for `@Argument` (single UDA) form.
