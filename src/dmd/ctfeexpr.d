@@ -686,9 +686,10 @@ bool isSafePointerCast(Type srcPointee, Type destPointee)
     if (srcPointee.constConv(destPointee))
         return true;
     // It's OK if function pointers differ only in safe/pure/nothrow
-    if (srcPointee.ty == Tfunction && destPointee.ty == Tfunction)
-        return srcPointee.covariant(destPointee) == Covariant.yes ||
-            destPointee.covariant(srcPointee) == Covariant.yes;
+    if (auto tfSrc = srcPointee.isTypeFunction())
+        if (auto tfDest = destPointee.isTypeFunction())
+            return tfSrc.covariant(tfDest) == Covariant.yes ||
+                tfDest.covariant(tfSrc) == Covariant.yes;
     // it's OK to cast to void*
     if (destPointee.ty == Tvoid)
         return true;

@@ -435,237 +435,6 @@ extern (C++) abstract class Type : ASTNode
         return mcache;
     }
 
-    /*******************************
-     * Covariant means that 'this' can substitute for 't',
-     * i.e. a pure function is a match for an impure type.
-     * Params:
-     *      t = type 'this' is covariant with
-     *      pstc = if not null, store STCxxxx which would make it covariant
-     * Returns:
-     *     An enum value of either `Covariant.yes` or a reason it's not covariant.
-     */
-    final Covariant covariant(Type t, StorageClass* pstc = null)
-    {
-        version (none)
-        {
-            printf("Type::covariant(t = %s) %s\n", t.toChars(), toChars());
-            printf("deco = %p, %p\n", deco, t.deco);
-            //    printf("ty = %d\n", next.ty);
-            printf("mod = %x, %x\n", mod, t.mod);
-        }
-        if (pstc)
-            *pstc = 0;
-        StorageClass stc = 0;
-
-        bool notcovariant = false;
-
-        if (equals(t))
-            return Covariant.yes;
-
-        TypeFunction t1 = this.isTypeFunction();
-        TypeFunction t2 = t.isTypeFunction();
-
-        if (!t1 || !t2)
-            goto Ldistinct;
-
-        if (t1.parameterList.varargs != t2.parameterList.varargs)
-            goto Ldistinct;
-
-        if (t1.parameterList.parameters && t2.parameterList.parameters)
-        {
-            if (t1.parameterList.length != t2.parameterList.length)
-                goto Ldistinct;
-
-            foreach (i, fparam1; t1.parameterList)
-            {
-                Parameter fparam2 = t2.parameterList[i];
-
-                if (!fparam1.type.equals(fparam2.type))
-                {
-                    Type tp1 = fparam1.type;
-                    Type tp2 = fparam2.type;
-                    if (tp1.ty == tp2.ty)
-                    {
-                        if (auto tc1 = tp1.isTypeClass())
-                        {
-                            if (tc1.sym == (cast(TypeClass)tp2).sym && MODimplicitConv(tp2.mod, tp1.mod))
-                                goto Lcov;
-                        }
-                        else if (auto ts1 = tp1.isTypeStruct())
-                        {
-                            if (ts1.sym == (cast(TypeStruct)tp2).sym && MODimplicitConv(tp2.mod, tp1.mod))
-                                goto Lcov;
-                        }
-                        else if (tp1.ty == Tpointer)
-                        {
-                            if (tp2.implicitConvTo(tp1))
-                                goto Lcov;
-                        }
-                        else if (tp1.ty == Tarray)
-                        {
-                            if (tp2.implicitConvTo(tp1))
-                                goto Lcov;
-                        }
-                        else if (tp1.ty == Tdelegate)
-                        {
-                            if (tp1.implicitConvTo(tp2))
-                                goto Lcov;
-                        }
-                    }
-                    goto Ldistinct;
-                }
-            Lcov:
-                notcovariant |= !fparam1.isCovariant(t1.isref, fparam2);
-            }
-        }
-        else if (t1.parameterList.parameters != t2.parameterList.parameters)
-        {
-            if (t1.parameterList.length || t2.parameterList.length)
-                goto Ldistinct;
-        }
-
-        // The argument lists match
-        if (notcovariant)
-            goto Lnotcovariant;
-        if (t1.linkage != t2.linkage)
-            goto Lnotcovariant;
-
-        {
-            // Return types
-            Type t1n = t1.next;
-            Type t2n = t2.next;
-
-            if (!t1n || !t2n) // happens with return type inference
-                goto Lnotcovariant;
-
-            if (t1n.equals(t2n))
-                goto Lcovariant;
-            if (t1n.ty == Tclass && t2n.ty == Tclass)
-            {
-                /* If same class type, but t2n is const, then it's
-                 * covariant. Do this test first because it can work on
-                 * forward references.
-                 */
-                if ((cast(TypeClass)t1n).sym == (cast(TypeClass)t2n).sym && MODimplicitConv(t1n.mod, t2n.mod))
-                    goto Lcovariant;
-
-                // If t1n is forward referenced:
-                ClassDeclaration cd = (cast(TypeClass)t1n).sym;
-                if (cd.semanticRun < PASS.semanticdone && !cd.isBaseInfoComplete())
-                    cd.dsymbolSemantic(null);
-                if (!cd.isBaseInfoComplete())
-                {
-                    return Covariant.fwdref;
-                }
-            }
-            if (t1n.ty == Tstruct && t2n.ty == Tstruct)
-            {
-                if ((cast(TypeStruct)t1n).sym == (cast(TypeStruct)t2n).sym && MODimplicitConv(t1n.mod, t2n.mod))
-                    goto Lcovariant;
-            }
-            else if (t1n.ty == t2n.ty && t1n.implicitConvTo(t2n))
-                goto Lcovariant;
-            else if (t1n.ty == Tnull)
-            {
-                // NULL is covariant with any pointer type, but not with any
-                // dynamic arrays, associative arrays or delegates.
-                // https://issues.dlang.org/show_bug.cgi?id=8589
-                // https://issues.dlang.org/show_bug.cgi?id=19618
-                Type t2bn = t2n.toBasetype();
-                if (t2bn.ty == Tnull || t2bn.ty == Tpointer || t2bn.ty == Tclass)
-                    goto Lcovariant;
-            }
-            // bottom type is covariant to any type
-            else if (t1n.ty == Tnoreturn)
-                goto Lcovariant;
-        }
-        goto Lnotcovariant;
-
-    Lcovariant:
-        if (t1.isref != t2.isref)
-            goto Lnotcovariant;
-
-        if (!t1.isref && (t1.isScopeQual || t2.isScopeQual))
-        {
-            StorageClass stc1 = t1.isScopeQual ? STC.scope_ : 0;
-            StorageClass stc2 = t2.isScopeQual ? STC.scope_ : 0;
-            if (t1.isreturn)
-            {
-                stc1 |= STC.return_;
-                if (!t1.isScopeQual)
-                    stc1 |= STC.ref_;
-            }
-            if (t2.isreturn)
-            {
-                stc2 |= STC.return_;
-                if (!t2.isScopeQual)
-                    stc2 |= STC.ref_;
-            }
-            if (!Parameter.isCovariantScope(t1.isref, stc1, stc2))
-                goto Lnotcovariant;
-        }
-
-        // We can subtract 'return ref' from 'this', but cannot add it
-        else if (t1.isreturn && !t2.isreturn)
-            goto Lnotcovariant;
-
-        /* Can convert mutable to const
-         */
-        if (!MODimplicitConv(t2.mod, t1.mod))
-        {
-            version (none)
-            {
-                //stop attribute inference with const
-                // If adding 'const' will make it covariant
-                if (MODimplicitConv(t2.mod, MODmerge(t1.mod, MODFlags.const_)))
-                    stc |= STC.const_;
-                else
-                    goto Lnotcovariant;
-            }
-            else
-            {
-                goto Ldistinct;
-            }
-        }
-
-        /* Can convert pure to impure, nothrow to throw, and nogc to gc
-         */
-        if (!t1.purity && t2.purity)
-            stc |= STC.pure_;
-
-        if (!t1.isnothrow && t2.isnothrow)
-            stc |= STC.nothrow_;
-
-        if (!t1.isnogc && t2.isnogc)
-            stc |= STC.nogc;
-
-        /* Can convert safe/trusted to system
-         */
-        if (t1.trust <= TRUST.system && t2.trust >= TRUST.trusted)
-        {
-            // Should we infer trusted or safe? Go with safe.
-            stc |= STC.safe;
-        }
-
-        if (stc)
-        {
-            if (pstc)
-                *pstc = stc;
-            goto Lnotcovariant;
-        }
-
-        //printf("\tcovaraint: 1\n");
-        return Covariant.yes;
-
-    Ldistinct:
-        //printf("\tcovaraint: 0\n");
-        return Covariant.distinct;
-
-    Lnotcovariant:
-        //printf("\tcovaraint: 2\n");
-        return Covariant.no;
-    }
-
     /********************************
      * For pretty-printing a type.
      */
@@ -3969,16 +3738,16 @@ extern (C++) final class TypePointer : TypeNext
         if (equals(to))
             return MATCH.exact;
 
-        if (next.ty == Tfunction)
+        if (auto nextTf = next.isTypeFunction())
         {
             if (auto tp = to.isTypePointer())
             {
-                if (tp.next.ty == Tfunction)
+                if (auto tf = tp.next.isTypeFunction())
                 {
                     if (next.equals(tp.next))
                         return MATCH.constant;
 
-                    if (next.covariant(tp.next) == Covariant.yes)
+                    if (nextTf.covariant(tf) == Covariant.yes)
                     {
                         Type tret = this.next.nextOf();
                         Type toret = tp.next.nextOf();
@@ -5282,24 +5051,25 @@ extern (C++) final class TypeDelegate : TypeNext
         version (all)
         {
             // not allowing covariant conversions because it interferes with overriding
-            if (to.ty == Tdelegate && this.nextOf().covariant(to.nextOf()) == Covariant.yes)
-            {
-                Type tret = this.next.nextOf();
-                Type toret = (cast(TypeDelegate)to).next.nextOf();
-                if (tret.ty == Tclass && toret.ty == Tclass)
+            if (auto tdg = to.isTypeDelegate())
+                if ((cast(TypeFunction) this.nextOf()).covariant(cast(TypeFunction) tdg.nextOf()) == Covariant.yes)
                 {
-                    /* https://issues.dlang.org/show_bug.cgi?id=10219
-                     * Check covariant interface return with offset tweaking.
-                     * interface I {}
-                     * class C : Object, I {}
-                     * I delegate() dg = delegate C() {}    // should be error
-                     */
-                    int offset = 0;
-                    if (toret.isBaseOf(tret, &offset) && offset != 0)
-                        return MATCH.nomatch;
+                    Type tret = this.next.nextOf();
+                    Type toret = (cast(TypeDelegate)to).next.nextOf();
+                    if (tret.ty == Tclass && toret.ty == Tclass)
+                    {
+                        /* https://issues.dlang.org/show_bug.cgi?id=10219
+                         * Check covariant interface return with offset tweaking.
+                         * interface I {}
+                         * class C : Object, I {}
+                         * I delegate() dg = delegate C() {}    // should be error
+                         */
+                        int offset = 0;
+                        if (toret.isBaseOf(tret, &offset) && offset != 0)
+                            return MATCH.nomatch;
+                    }
+                    return MATCH.convert;
                 }
-                return MATCH.convert;
-            }
         }
 
         return MATCH.nomatch;
@@ -7374,4 +7144,234 @@ const(char)* toChars(ScopeRef sr) pure nothrow @nogc @safe
         ];
         return names[sr];
     }
+}
+
+/*******************************
+ * Covariant means that 'this' can substitute for 't',
+ * i.e. a pure function is a match for an impure type.
+ * Params:
+ *      t = type 'this' is covariant with
+ *      pstc = if not null, store STCxxxx which would make it covariant
+ * Returns:
+ *      0       types are distinct
+ *      1       this is covariant with t
+ *      2       arguments match as far as overloading goes,
+ *              but types are not covariant
+ *      3       cannot determine covariance because of forward references
+ *      *pstc   STCxxxx which would make it covariant
+ */
+int covariant(TypeFunction t1, TypeFunction t2, StorageClass* pstc = null)
+{
+    version (none)
+    {
+        printf("Type::covariant(t = %s) %s\n", t2.toChars(), t1.toChars());
+        printf("deco = %p, %p\n", t1.deco, t2.deco);
+        //    printf("ty = %d\n", t1.next.ty);
+        printf("mod = %x, %x\n", t1.mod, t2.mod);
+    }
+    if (pstc)
+        *pstc = 0;
+    StorageClass stc = 0;
+
+    bool notcovariant = false;
+
+    if (t1.equals(t2))
+        return Covariant.yes;
+
+    if (t1.parameterList.varargs != t2.parameterList.varargs)
+        goto Ldistinct;
+
+    if (t1.parameterList.parameters && t2.parameterList.parameters)
+    {
+        if (t1.parameterList.length != t2.parameterList.length)
+            goto Ldistinct;
+
+        foreach (i, fparam1; t1.parameterList)
+        {
+            Parameter fparam2 = t2.parameterList[i];
+
+            if (!fparam1.type.equals(fparam2.type))
+            {
+                Type tp1 = fparam1.type;
+                Type tp2 = fparam2.type;
+                if (tp1.ty == tp2.ty)
+                {
+                    if (auto tc1 = tp1.isTypeClass())
+                    {
+                        if (tc1.sym == (cast(TypeClass)tp2).sym && MODimplicitConv(tp2.mod, tp1.mod))
+                            goto Lcov;
+                    }
+                    else if (auto ts1 = tp1.isTypeStruct())
+                    {
+                        if (ts1.sym == (cast(TypeStruct)tp2).sym && MODimplicitConv(tp2.mod, tp1.mod))
+                            goto Lcov;
+                    }
+                    else if (tp1.ty == Tpointer)
+                    {
+                        if (tp2.implicitConvTo(tp1))
+                            goto Lcov;
+                    }
+                    else if (tp1.ty == Tarray)
+                    {
+                        if (tp2.implicitConvTo(tp1))
+                            goto Lcov;
+                    }
+                    else if (tp1.ty == Tdelegate)
+                    {
+                        if (tp1.implicitConvTo(tp2))
+                            goto Lcov;
+                    }
+                }
+                goto Ldistinct;
+            }
+        Lcov:
+            notcovariant |= !fparam1.isCovariant(t1.isref, fparam2);
+        }
+    }
+    else if (t1.parameterList.parameters != t2.parameterList.parameters)
+    {
+        if (t1.parameterList.length || t2.parameterList.length)
+            goto Ldistinct;
+    }
+
+    // The argument lists match
+    if (notcovariant)
+        goto Lnotcovariant;
+    if (t1.linkage != t2.linkage)
+        goto Lnotcovariant;
+
+    {
+        // Return types
+        Type t1n = t1.next;
+        Type t2n = t2.next;
+
+        if (!t1n || !t2n) // happens with return type inference
+            goto Lnotcovariant;
+
+        if (t1n.equals(t2n))
+            goto Lcovariant;
+        if (t1n.ty == Tclass && t2n.ty == Tclass)
+        {
+            /* If same class type, but t2n is const, then it's
+             * covariant. Do this test first because it can work on
+             * forward references.
+             */
+            if ((cast(TypeClass)t1n).sym == (cast(TypeClass)t2n).sym && MODimplicitConv(t1n.mod, t2n.mod))
+                goto Lcovariant;
+
+            // If t1n is forward referenced:
+            ClassDeclaration cd = (cast(TypeClass)t1n).sym;
+            if (cd.semanticRun < PASS.semanticdone && !cd.isBaseInfoComplete())
+                cd.dsymbolSemantic(null);
+            if (!cd.isBaseInfoComplete())
+            {
+                return Covariant.fwdref;
+            }
+        }
+        if (t1n.ty == Tstruct && t2n.ty == Tstruct)
+        {
+            if ((cast(TypeStruct)t1n).sym == (cast(TypeStruct)t2n).sym && MODimplicitConv(t1n.mod, t2n.mod))
+                goto Lcovariant;
+        }
+        else if (t1n.ty == t2n.ty && t1n.implicitConvTo(t2n))
+            goto Lcovariant;
+        else if (t1n.ty == Tnull)
+        {
+            // NULL is covariant with any pointer type, but not with any
+            // dynamic arrays, associative arrays or delegates.
+            // https://issues.dlang.org/show_bug.cgi?id=8589
+            // https://issues.dlang.org/show_bug.cgi?id=19618
+            Type t2bn = t2n.toBasetype();
+            if (t2bn.ty == Tnull || t2bn.ty == Tpointer || t2bn.ty == Tclass)
+                goto Lcovariant;
+        }
+        // bottom type is covariant to any type
+        else if (t1n.ty == Tnoreturn)
+            goto Lcovariant;
+    }
+    goto Lnotcovariant;
+
+Lcovariant:
+    if (t1.isref != t2.isref)
+        goto Lnotcovariant;
+
+    if (!t1.isref && (t1.isScopeQual || t2.isScopeQual))
+    {
+        StorageClass stc1 = t1.isScopeQual ? STC.scope_ : 0;
+        StorageClass stc2 = t2.isScopeQual ? STC.scope_ : 0;
+        if (t1.isreturn)
+        {
+            stc1 |= STC.return_;
+            if (!t1.isScopeQual)
+                stc1 |= STC.ref_;
+        }
+        if (t2.isreturn)
+        {
+            stc2 |= STC.return_;
+            if (!t2.isScopeQual)
+                stc2 |= STC.ref_;
+        }
+        if (!Parameter.isCovariantScope(t1.isref, stc1, stc2))
+            goto Lnotcovariant;
+    }
+
+    // We can subtract 'return ref' from 'this', but cannot add it
+    else if (t1.isreturn && !t2.isreturn)
+        goto Lnotcovariant;
+
+    /* Can convert mutable to const
+     */
+    if (!MODimplicitConv(t2.mod, t1.mod))
+    {
+        version (none)
+        {
+            //stop attribute inference with const
+            // If adding 'const' will make it covariant
+            if (MODimplicitConv(t2.mod, MODmerge(t1.mod, MODFlags.const_)))
+                stc |= STC.const_;
+            else
+                goto Lnotcovariant;
+        }
+        else
+        {
+            goto Ldistinct;
+        }
+    }
+
+    /* Can convert pure to impure, nothrow to throw, and nogc to gc
+     */
+    if (!t1.purity && t2.purity)
+        stc |= STC.pure_;
+
+    if (!t1.isnothrow && t2.isnothrow)
+        stc |= STC.nothrow_;
+
+    if (!t1.isnogc && t2.isnogc)
+        stc |= STC.nogc;
+
+    /* Can convert safe/trusted to system
+     */
+    if (t1.trust <= TRUST.system && t2.trust >= TRUST.trusted)
+    {
+        // Should we infer trusted or safe? Go with safe.
+        stc |= STC.safe;
+    }
+
+    if (stc)
+    {
+        if (pstc)
+            *pstc = stc;
+        goto Lnotcovariant;
+    }
+
+    //printf("\tcovaraint: 1\n");
+    return Covariant.yes;
+
+Ldistinct:
+    //printf("\tcovaraint: 0\n");
+    return Covariant.distinct;
+
+Lnotcovariant:
+    //printf("\tcovaraint: 2\n");
+    return Covariant.no;
 }

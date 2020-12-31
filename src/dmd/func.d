@@ -633,7 +633,7 @@ extern (C++) class FuncDeclaration : Declaration
         int result = 0;
         if (fd.ident == ident)
         {
-            const cov = type.covariant(fd.type);
+            const cov = (cast(TypeFunction) type).covariant(cast(TypeFunction) fd.type);
             if (cov != Covariant.distinct)
             {
                 ClassDeclaration cd1 = toParent().isClassDeclaration();
@@ -692,7 +692,7 @@ extern (C++) class FuncDeclaration : Declaration
                 }
 
                 StorageClass stc = 0;
-                const cov = type.covariant(fdv.type, &stc);
+                const cov = (cast(TypeFunction) type).covariant((cast(TypeFunction) fdv.type), &stc);
                 //printf("\tbaseclass cov = %d\n", cov);
                 final switch (cov)
                 {
@@ -828,6 +828,7 @@ extern (C++) class FuncDeclaration : Declaration
     extern (D) final FuncDeclaration overloadExactMatch(Type t)
     {
         FuncDeclaration fd;
+        auto argTypeFunc = t.isTypeFunction();
         overloadApply(this, (Dsymbol s)
         {
             auto f = s.isFuncDeclaration();
@@ -843,11 +844,11 @@ extern (C++) class FuncDeclaration : Declaration
              * is just a const conversion.
              * This allows things like pure functions to match with an impure function type.
              */
-            if (t.ty == Tfunction)
+            if (argTypeFunc !is null)
             {
                 auto tf = cast(TypeFunction)f.type;
-                if (tf.covariant(t) == Covariant.yes &&
-                    tf.nextOf().implicitConvTo(t.nextOf()) >= MATCH.constant)
+                if (tf.covariant(argTypeFunc) == Covariant.yes &&
+                    tf.nextOf().implicitConvTo(argTypeFunc.nextOf()) >= MATCH.constant)
                 {
                     fd = f;
                     return 1;

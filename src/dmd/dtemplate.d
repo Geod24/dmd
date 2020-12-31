@@ -2742,8 +2742,8 @@ void functionResolve(ref MatchAccumulator m, Dsymbol dstart, Loc loc, Scope* sc,
         if (!m.lastf.type.equals(fd.type))
         {
             //printf("cov: %d %d\n", m.lastf.type.covariant(fd.type), fd.type.covariant(m.lastf.type));
-            const lastCovariant = m.lastf.type.covariant(fd.type);
-            const firstCovariant = fd.type.covariant(m.lastf.type);
+            const lastCovariant = (cast(TypeFunction) m.lastf.type).covariant(cast(TypeFunction) fd.type);
+            const firstCovariant = (cast(TypeFunction) fd.type).covariant(cast(TypeFunction) m.lastf.type);
 
             if (lastCovariant == Covariant.yes || lastCovariant == Covariant.no)
             {

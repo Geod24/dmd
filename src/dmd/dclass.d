@@ -735,7 +735,7 @@ extern (C++) class ClassDeclaration : AggregateDeclaration
 
                 // the first entry might be a ClassInfo
                 //printf("\t[%d] = %s\n", i, fd.toChars());
-                if (ident != fd.ident || fd.type.covariant(tf) != Covariant.yes)
+                if (ident != fd.ident || (cast(TypeFunction) fd.type).covariant(tf) != Covariant.yes)
                 {
                     //printf("\t\t%d\n", fd.type.covariant(tf));
                     continue;
@@ -761,7 +761,7 @@ extern (C++) class ClassDeclaration : AggregateDeclaration
                 if (fd.interfaceVirtual &&
                     fd.interfaceVirtual is fdmatch.interfaceVirtual &&
                     !seenInterfaceVirtual &&
-                    fdmatch.type.covariant(fd.type) == Covariant.yes)
+                    (cast(TypeFunction) fdmatch.type).covariant(cast(TypeFunction) fd.type) == Covariant.yes)
                 {
                     seenInterfaceVirtual = true;
                     continue;
