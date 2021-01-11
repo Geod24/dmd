@@ -134,7 +134,7 @@ jobs:
     #    Setting up the host D compiler    #
     ########################################
     - name: Prepare compiler
-      uses: dlang-community/setup-dlang@v1
+      uses: Geod24/setup-dlang@workaround-bug
       with:
           # The host compiler does not matter too much, it is simply used for building DMD
           # Other CIs will test bootstrapping.
