@@ -2988,7 +2988,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         UserAttributeDeclaration.checkGNUABITag(funcdecl, funcdecl.linkage);
 
         if (!funcdecl.originalType)
-            funcdecl.originalType = funcdecl.type.syntaxCopy();
+            funcdecl.originalType((cast(TypeFunction) funcdecl.type).syntaxCopy());
         if (funcdecl.type.ty != Tfunction)
         {
             if (funcdecl.type.ty != Terror)

@@ -244,6 +244,8 @@ extern (C++) struct Ensure
  */
 extern (C++) class FuncDeclaration : Declaration
 {
+    private TypeFunction originalType_;
+
     Statements* frequires;              /// in contracts
     Ensures* fensures;                  /// out contracts
     Statement frequire;                 /// lowered in contract
@@ -389,6 +391,18 @@ extern (C++) class FuncDeclaration : Declaration
         f.fensures = fensures ? Ensure.arraySyntaxCopy(fensures) : null;
         f.fbody = fbody ? fbody.syntaxCopy() : null;
         return f;
+    }
+
+    /// See `Declaration.originalType`
+    final override inout(TypeFunction) originalType() inout @safe pure nothrow @nogc
+    {
+        return this.originalType_;
+    }
+
+    /// Setting for `originalType`, called from semantic
+    final void originalType(TypeFunction v) @safe pure nothrow @nogc
+    {
+        this.originalType_ = v;
     }
 
     /****************************************************

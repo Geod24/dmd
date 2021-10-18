@@ -1189,7 +1189,7 @@ extern (C++) final class TemplateDeclaration : ScopeDsymbol
                 global.endGagging(olderrors);
                 if (fd.type.ty != Tfunction)
                     return nomatch();
-                fd.originalType = fd.type; // for mangling
+                fd.originalType = cast(TypeFunction) fd.type; // for mangling
             }
 
             // TODO: dedtypes => ti.tiargs ?
@@ -2435,7 +2435,7 @@ extern (C++) final class TemplateDeclaration : ScopeDsymbol
         if (fd.type.ty != Tfunction)
             return null;
 
-        fd.originalType = fd.type; // for mangling
+        fd.originalType = cast(TypeFunction) fd.type; // for mangling
         //printf("\t[%s] fd.type = %s, mod = %x, ", loc.toChars(), fd.type.toChars(), fd.type.mod);
         //printf("fd.needThis() = %d\n", fd.needThis());
 

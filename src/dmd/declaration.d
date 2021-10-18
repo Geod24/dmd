@@ -217,7 +217,6 @@ struct MatchAccumulator
 extern (C++) abstract class Declaration : Dsymbol
 {
     Type type;
-    Type originalType;  // before semantic analysis
     StorageClass storage_class = STC.undefined_;
     Visibility visibility;
     LINK linkage = LINK.default_;
@@ -251,6 +250,23 @@ extern (C++) abstract class Declaration : Dsymbol
     {
         assert(type);
         return type.size();
+    }
+
+    /**
+     * The original (pre-semantic) type of this declaration.
+     *
+     * This is a copy of the original `type`, useful as it accurately represent
+     * "user input". It is used in various areas, such as C++ interop (where the
+     * pre-semantic type is needed to emit the correct arguments index during
+     * template substitution), C++ header generation
+     * (to avoid `alias` showing up as their resolved type), or DDOC.
+     *
+     * Child classes may override this with a covariant return type,
+     * e.g. `TypeFunction` for `FuncDeclaration`.
+     */
+    inout(Type) originalType() inout @safe pure nothrow @nogc
+    {
+        assert(0);
     }
 
     /**
@@ -684,6 +700,8 @@ extern (C++) final class TupleDeclaration : Declaration
  */
 extern (C++) final class AliasDeclaration : Declaration
 {
+    private Type originalType_;
+
     Dsymbol aliassym;
     Dsymbol overnext;   // next in overload list
     Dsymbol _import;    // !=null if unresolved internal alias for selective import
@@ -719,6 +737,18 @@ extern (C++) final class AliasDeclaration : Declaration
         sa.comment = comment;
         sa.storage_class = storage_class;
         return sa;
+    }
+
+    /// See `Declaration.originalType`
+    final override inout(Type) originalType() inout @safe pure nothrow @nogc
+    {
+        return this.originalType_;
+    }
+
+    /// Setter for `originalType`, set from semantic
+    final void originalType(Type v) @safe pure nothrow @nogc
+    {
+        this.originalType_ = v;
     }
 
     override bool overloadInsert(Dsymbol s)
@@ -970,6 +1000,13 @@ extern (C++) final class OverDeclaration : Declaration
         this.aliassym = s;
     }
 
+    /// See `Declaration.originalType`
+    final override inout(Type) originalType() inout @safe pure nothrow @nogc
+    {
+        assert(0);
+        //return this.originalType_;
+    }
+
     override const(char)* kind() const
     {
         return "overload alias"; // todo
@@ -1039,6 +1076,8 @@ extern (C++) final class OverDeclaration : Declaration
  */
 extern (C++) class VarDeclaration : Declaration
 {
+    private Type originalType_;
+
     Initializer _init;
     FuncDeclarations nestedrefs;    // referenced by these lexically nested functions
     Dsymbol aliassym;               // if redone as alias to another symbol
@@ -1115,6 +1154,18 @@ extern (C++) class VarDeclaration : Declaration
         auto v = new VarDeclaration(loc, type ? type.syntaxCopy() : null, ident, _init ? _init.syntaxCopy() : null, storage_class);
         v.comment = comment;
         return v;
+    }
+
+    /// See `Declaration.originalType`
+    final override inout(Type) originalType() inout @safe pure nothrow @nogc
+    {
+        return this.originalType_;
+    }
+
+    /// Setting for `originalType`, called from semantic
+    final void originalType(Type v) @safe pure nothrow @nogc
+    {
+        this.originalType_ = v;
     }
 
     override void setFieldOffset(AggregateDeclaration ad, ref FieldState fieldState, bool isunion)
