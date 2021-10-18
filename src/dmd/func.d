@@ -246,6 +246,10 @@ extern (C++) class FuncDeclaration : Declaration
 {
     private TypeFunction originalType_;
 
+    private Type type_;
+    final override inout(TypeFunction) type() inout @safe pure nothrow @nogc { return this.type_; }
+    void type(TypeFunction tf) @safe pure nothrow @nogc { this.type_ = tf; }
+
     Statements* frequires;              /// in contracts
     Ensures* fensures;                  /// out contracts
     Statement frequire;                 /// lowered in contract

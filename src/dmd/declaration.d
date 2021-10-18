@@ -216,7 +216,6 @@ struct MatchAccumulator
  */
 extern (C++) abstract class Declaration : Dsymbol
 {
-    Type type;
     StorageClass storage_class = STC.undefined_;
     Visibility visibility;
     LINK linkage = LINK.default_;
@@ -251,6 +250,13 @@ extern (C++) abstract class Declaration : Dsymbol
         assert(type);
         return type.size();
     }
+
+    /// The type of this declaration - Can be overriden with covariant return type
+    abstract inout(Type) type() inout @safe pure nothrow @nogc;
+
+    /// The type of this declaration before semantic analysis
+    /// Used for better error message and C++ mangling.
+    //abstract inout(Type) originalType() inout;
 
     /**
      * The original (pre-semantic) type of this declaration.
@@ -702,6 +708,9 @@ extern (C++) final class AliasDeclaration : Declaration
 {
     private Type originalType_;
 
+    private Type type_;
+    final override inout(Type) type() inout @safe pure nothrow @nogc { return this.type_; }
+
     Dsymbol aliassym;
     Dsymbol overnext;   // next in overload list
     Dsymbol _import;    // !=null if unresolved internal alias for selective import
@@ -711,7 +720,7 @@ extern (C++) final class AliasDeclaration : Declaration
         super(loc, ident);
         //printf("AliasDeclaration(id = '%s', type = %p)\n", id.toChars(), type);
         //printf("type = '%s'\n", type.toChars());
-        this.type = type;
+        this.type_ = type;
         assert(type);
     }
 
@@ -733,7 +742,7 @@ extern (C++) final class AliasDeclaration : Declaration
     {
         //printf("AliasDeclaration::syntaxCopy()\n");
         assert(!s);
-        AliasDeclaration sa = type ? new AliasDeclaration(loc, ident, type.syntaxCopy()) : new AliasDeclaration(loc, ident, aliassym.syntaxCopy(null));
+        AliasDeclaration sa = type_ ? new AliasDeclaration(loc, ident, type_.syntaxCopy()) : new AliasDeclaration(loc, ident, aliassym.syntaxCopy(null));
         sa.comment = comment;
         sa.storage_class = storage_class;
         return sa;
@@ -777,7 +786,7 @@ extern (C++) final class AliasDeclaration : Declaration
             /* Semantic analysis is already finished, and the aliased entity
              * is not overloadable.
              */
-            if (type)
+            if (type_)
                 return false;
 
             /* When s is added in member scope by static if, mixin("code") or others,
@@ -863,8 +872,8 @@ extern (C++) final class AliasDeclaration : Declaration
 
     override Type getType()
     {
-        if (type)
-            return type;
+        if (type_)
+            return type_;
         return toAlias().getType();
     }
 
@@ -879,12 +888,12 @@ extern (C++) final class AliasDeclaration : Declaration
         if (!(adFlags & ignoreRead))
             adFlags |= wasRead;                 // can never assign to this AliasDeclaration again
 
-        if (inuse == 1 && type && _scope)
+        if (inuse == 1 && type_ && _scope)
         {
             inuse = 2;
             uint olderrors = global.errors;
-            Dsymbol s = type.toDsymbol(_scope);
-            //printf("[%s] type = %s, s = %p, this = %p\n", loc.toChars(), type.toChars(), s, this);
+            Dsymbol s = type_.toDsymbol(_scope);
+            //printf("[%s] type = %s, s = %p, this = %p\n", loc.toChars(), type_.toChars(), s, this);
             if (global.errors != olderrors)
                 goto Lerr;
             if (s)
@@ -897,7 +906,7 @@ extern (C++) final class AliasDeclaration : Declaration
             }
             else
             {
-                Type t = type.typeSemantic(loc, _scope);
+                Type t = type_.typeSemantic(loc, _scope);
                 if (t.ty == Terror)
                     goto Lerr;
                 if (global.errors != olderrors)
@@ -915,7 +924,7 @@ extern (C++) final class AliasDeclaration : Declaration
             if (global.gag)
                 return this;
             aliassym = new AliasDeclaration(loc, ident, Type.terror);
-            type = Type.terror;
+            type_ = Type.terror;
             return aliassym;
         }
 
@@ -1078,6 +1087,9 @@ extern (C++) class VarDeclaration : Declaration
 {
     private Type originalType_;
 
+    private Type type_;
+    final override inout(Type) type() inout @safe pure nothrow @nogc { return this.type_; }
+
     Initializer _init;
     FuncDeclarations nestedrefs;    // referenced by these lexically nested functions
     Dsymbol aliassym;               // if redone as alias to another symbol
@@ -1135,7 +1147,7 @@ extern (C++) class VarDeclaration : Declaration
         }
 
         assert(type || _init);
-        this.type = type;
+        this.type_ = type;
         this._init = _init;
         ctfeAdrOnStack = AdrOnStackNone;
         this.storage_class = storage_class;
@@ -1228,7 +1240,7 @@ extern (C++) class VarDeclaration : Declaration
             assert(ts.sym != ad);   // already checked in ad.determineFields()
             if (!ts.sym.determineSize(loc))
             {
-                type = Type.terror;
+                type_ = Type.terror;
                 errors = true;
                 return;
             }
@@ -1328,7 +1340,7 @@ extern (C++) class VarDeclaration : Declaration
             if (!parent && !(storage_class & STC.static_))
             {
                 error("forward referenced");
-                type = Type.terror;
+                type_ = Type.terror;
             }
             else if (storage_class & (STC.static_ | STC.extern_ | STC.tls | STC.gshared) ||
                 parent.isModule() || parent.isTemplateInstance() || parent.isNspace())
@@ -1549,12 +1561,12 @@ extern (C++) class VarDeclaration : Declaration
         if (_scope)
         {
             inuse++;
-            _init = _init.initializerSemantic(_scope, type, INITinterpret);
+            _init = _init.initializerSemantic(_scope, type_, INITinterpret);
             _scope = null;
             inuse--;
         }
 
-        Expression e = _init.initializerToExpression(needFullType ? type : null);
+        Expression e = _init.initializerToExpression(needFullType ? type_ : null);
         global.gag = oldgag;
         return e;
     }
