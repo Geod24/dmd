@@ -684,117 +684,11 @@ extern (C++) final class Module : Package
     /// ditto
     extern (D) Module parseModule(AST)()
     {
-        enum SourceEncoding { utf16, utf32}
-
         const(char)* srcname = srcfile.toChars();
         //printf("Module::parse(srcname = '%s')\n", srcname);
         isPackageFile = (strcmp(srcfile.name(), package_d) == 0 ||
                          strcmp(srcfile.name(), package_di) == 0);
-        const(char)[] buf = cast(const(char)[]) this.src;
-
-        bool needsReencoding = true;
-        bool hasBOM = true; //assume there's a BOM
-        Endian endian;
-        SourceEncoding sourceEncoding;
-
-        if (buf.length >= 2)
-        {
-            /* Convert all non-UTF-8 formats to UTF-8.
-             * BOM : https://www.unicode.org/faq/utf_bom.html
-             * 00 00 FE FF  UTF-32BE, big-endian
-             * FF FE 00 00  UTF-32LE, little-endian
-             * FE FF        UTF-16BE, big-endian
-             * FF FE        UTF-16LE, little-endian
-             * EF BB BF     UTF-8
-             */
-            if (buf[0] == 0xFF && buf[1] == 0xFE)
-            {
-                endian = Endian.little;
-
-                sourceEncoding = buf.length >= 4 && buf[2] == 0 && buf[3] == 0
-                                 ? SourceEncoding.utf32
-                                 : SourceEncoding.utf16;
-            }
-            else if (buf[0] == 0xFE && buf[1] == 0xFF)
-            {
-                endian = Endian.big;
-                sourceEncoding = SourceEncoding.utf16;
-            }
-            else if (buf.length >= 4 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0xFE && buf[3] == 0xFF)
-            {
-                endian = Endian.big;
-                sourceEncoding = SourceEncoding.utf32;
-            }
-            else if (buf.length >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF)
-            {
-                needsReencoding = false;//utf8 with BOM
-            }
-            else
-            {
-                /* There is no BOM. Make use of Arcane Jill's insight that
-                 * the first char of D source must be ASCII to
-                 * figure out the encoding.
-                 */
-                hasBOM = false;
-                if (buf.length >= 4 && buf[1] == 0 && buf[2] == 0 && buf[3] == 0)
-                {
-                    endian = Endian.little;
-                    sourceEncoding = SourceEncoding.utf32;
-                }
-                else if (buf.length >= 4 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0)
-                {
-                    endian = Endian.big;
-                    sourceEncoding = SourceEncoding.utf32;
-                }
-                else if (buf.length >= 2 && buf[1] == 0) //try to check for UTF-16
-                {
-                    endian = Endian.little;
-                    sourceEncoding = SourceEncoding.utf16;
-                }
-                else if (buf[0] == 0)
-                {
-                    endian = Endian.big;
-                    sourceEncoding = SourceEncoding.utf16;
-                }
-                else {
-                    // It's UTF-8
-                    needsReencoding = false;
-                    if (buf[0] >= 0x80)
-                    {
-                        error("source file must start with BOM or ASCII character, not \\x%02X", buf[0]);
-                        return null;
-                    }
-                }
-            }
-            //throw away BOM
-            if (hasBOM)
-            {
-                if (!needsReencoding) buf = buf[3..$];// utf-8 already
-                else if (sourceEncoding == SourceEncoding.utf32) buf = buf[4..$];
-                else buf = buf[2..$]; //utf 16
-            }
-        }
-        // Assume the buffer is from memory and has not be read from disk. Assume UTF-8.
-        else if (buf.length >= 1 && (buf[0] == '\0' || buf[0] == 0x1A))
-            needsReencoding = false;
-         //printf("%s, %d, %d, %d\n", srcfile.name.toChars(), needsReencoding, endian == Endian.little, sourceEncoding == SourceEncoding.utf16);
-        if (needsReencoding)
-        {
-            if (sourceEncoding == SourceEncoding.utf16)
-            {
-                buf = endian == Endian.little
-                      ? UTF16ToUTF8!(Endian.little)(buf, this)
-                      : UTF16ToUTF8!(Endian.big)(buf, this);
-            }
-            else
-            {
-                buf = endian == Endian.little
-                      ? UTF32ToUTF8!(Endian.little)(buf, this)
-                      : UTF32ToUTF8!(Endian.big)(buf, this);
-            }
-            // an error happened on UTF conversion
-            if (buf is null) return null;
-        }
+        const(char)[] buf = processSource(src, this);
 
         /* If it starts with the string "Ddoc", then it's a documentation
          * source file.
@@ -1514,4 +1408,118 @@ private char[] UTF16ToUTF8(Endian endian)(const(char)[] buf, Module mod)
     }
     dbuf.writeByte(0); //add a terminating null byte
     return dbuf.extractSlice();
+}
+
+/**
+ * Process the content of a source file, attempting to find which encoding
+ * it is using, if it has BOM, etc...
+ */
+private const(char)[] processSource (const(ubyte)[] src, Module mod)
+{
+    enum SourceEncoding { utf16, utf32, }
+
+    bool needsReencoding = true;
+    bool hasBOM = true; //assume there's a BOM
+    Endian endian;
+    SourceEncoding sourceEncoding;
+
+    const(char)[] buf = cast(const(char)[]) src;
+
+    if (buf.length >= 2)
+    {
+        /* Convert all non-UTF-8 formats to UTF-8.
+         * BOM : https://www.unicode.org/faq/utf_bom.html
+         * 00 00 FE FF  UTF-32BE, big-endian
+         * FF FE 00 00  UTF-32LE, little-endian
+         * FE FF        UTF-16BE, big-endian
+         * FF FE        UTF-16LE, little-endian
+         * EF BB BF     UTF-8
+         */
+        if (buf[0] == 0xFF && buf[1] == 0xFE)
+        {
+            endian = Endian.little;
+
+            sourceEncoding = buf.length >= 4 && buf[2] == 0 && buf[3] == 0
+                             ? SourceEncoding.utf32
+                             : SourceEncoding.utf16;
+        }
+        else if (buf[0] == 0xFE && buf[1] == 0xFF)
+        {
+            endian = Endian.big;
+            sourceEncoding = SourceEncoding.utf16;
+        }
+        else if (buf.length >= 4 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0xFE && buf[3] == 0xFF)
+        {
+            endian = Endian.big;
+            sourceEncoding = SourceEncoding.utf32;
+        }
+        else if (buf.length >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF)
+        {
+            needsReencoding = false;//utf8 with BOM
+        }
+        else
+        {
+            /* There is no BOM. Make use of Arcane Jill's insight that
+             * the first char of D source must be ASCII to
+             * figure out the encoding.
+             */
+            hasBOM = false;
+            if (buf.length >= 4 && buf[1] == 0 && buf[2] == 0 && buf[3] == 0)
+            {
+                endian = Endian.little;
+                sourceEncoding = SourceEncoding.utf32;
+            }
+            else if (buf.length >= 4 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0)
+            {
+                endian = Endian.big;
+                sourceEncoding = SourceEncoding.utf32;
+            }
+            else if (buf.length >= 2 && buf[1] == 0) //try to check for UTF-16
+            {
+                endian = Endian.little;
+                sourceEncoding = SourceEncoding.utf16;
+            }
+            else if (buf[0] == 0)
+            {
+                endian = Endian.big;
+                sourceEncoding = SourceEncoding.utf16;
+            }
+            else {
+                // It's UTF-8
+                needsReencoding = false;
+                if (buf[0] >= 0x80)
+                {
+                    mod.error("source file must start with BOM or ASCII character, not \\x%02X", buf[0]);
+                    return null;
+                }
+            }
+        }
+        //throw away BOM
+        if (hasBOM)
+        {
+            if (!needsReencoding) buf = buf[3..$];// utf-8 already
+            else if (sourceEncoding == SourceEncoding.utf32) buf = buf[4..$];
+            else buf = buf[2..$]; //utf 16
+        }
+    }
+    // Assume the buffer is from memory and has not be read from disk. Assume UTF-8.
+    else if (buf.length >= 1 && (buf[0] == '\0' || buf[0] == 0x1A))
+        needsReencoding = false;
+    //printf("%s, %d, %d, %d\n", srcfile.name.toChars(), needsReencoding, endian == Endian.little, sourceEncoding == SourceEncoding.utf16);
+    if (needsReencoding)
+    {
+        if (sourceEncoding == SourceEncoding.utf16)
+        {
+            buf = endian == Endian.little
+                  ? UTF16ToUTF8!(Endian.little)(buf, mod)
+                  : UTF16ToUTF8!(Endian.big)(buf, mod);
+        }
+        else
+        {
+            buf = endian == Endian.little
+                  ? UTF32ToUTF8!(Endian.little)(buf, mod)
+                  : UTF32ToUTF8!(Endian.big)(buf, mod);
+        }
+     }
+    return buf;
 }
