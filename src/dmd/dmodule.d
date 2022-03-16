@@ -350,7 +350,7 @@ extern (C++) final class Module : Package
     const FileName objfile;     // output .obj file
     const FileName hdrfile;     // 'header' file
     FileName docfile;           // output documentation file
-    const(ubyte)[] src;         /// Raw content of the file
+    const(char)[] src;         /// Raw content of the file
     uint errors;                // if any errors in file
     uint numlines;              // number of lines in source file
     FileType filetype;          // source file type
@@ -663,7 +663,7 @@ extern (C++) final class Module : Package
         //printf("Module::read('%s') file '%s'\n", toChars(), srcfile.toChars());
         if (auto result = FileManager.fileManager.lookup(srcfile))
         {
-            this.src = result.data;
+            this.src = result.data.processSource(Loc(srcfile.toChars(), 0, 0));
             if (global.params.emitMakeDeps)
                 global.params.makeDeps.push(srcfile.toChars());
             return true;
@@ -687,14 +687,13 @@ extern (C++) final class Module : Package
         //printf("Module::parse(srcname = '%s')\n", srcname);
         isPackageFile = (strcmp(srcfile.name(), package_d) == 0 ||
                          strcmp(srcfile.name(), package_di) == 0);
-        const(char)[] buf = processSource(src, Loc(srcname, 0, 0));
 
         /* If it starts with the string "Ddoc", then it's a documentation
          * source file.
          */
-        if (buf.length>= 4 && buf[0..4] == "Ddoc")
+        if (src.length>= 4 && src[0..4] == "Ddoc")
         {
-            comment = buf.ptr + 4;
+            comment = src.ptr + 4;
             filetype = FileType.ddoc;
             if (!docfile)
                 setDocfile();
@@ -707,7 +706,7 @@ extern (C++) final class Module : Package
          */
         if (FileName.equalsExt(arg, dd_ext))
         {
-            comment = buf.ptr; // the optional Ddoc, if present, is handled above.
+            comment = src.ptr; // the optional Ddoc, if present, is handled above.
             filetype = FileType.ddoc;
             if (!docfile)
                 setDocfile();
@@ -735,7 +734,7 @@ extern (C++) final class Module : Package
         {
             filetype = FileType.c;
 
-            scope p = new CParser!AST(this, buf, cast(bool) docfile, target.c);
+            scope p = new CParser!AST(this, src, cast(bool) docfile, target.c);
             p.nextToken();
             checkCompiledImport();
             members = p.parseModule();
@@ -744,7 +743,7 @@ extern (C++) final class Module : Package
         }
         else
         {
-            scope p = new Parser!AST(this, buf, cast(bool) docfile);
+            scope p = new Parser!AST(this, src, cast(bool) docfile);
             p.nextToken();
             p.parseModuleDeclaration();
             md = p.md;
