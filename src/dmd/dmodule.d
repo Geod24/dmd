@@ -688,7 +688,7 @@ extern (C++) final class Module : Package
         //printf("Module::parse(srcname = '%s')\n", srcname);
         isPackageFile = (strcmp(srcfile.name(), package_d) == 0 ||
                          strcmp(srcfile.name(), package_di) == 0);
-        const(char)[] buf = processSource(src, this);
+        const(char)[] buf = processSource(src, Loc(srcname, 0, 0));
 
         /* If it starts with the string "Ddoc", then it's a documentation
          * source file.
@@ -1302,10 +1302,11 @@ private enum Endian { little, big, }
  * Params:
  *    Endian = is the buffer big/little endian
  *    buf = buffer of UTF32 data
+ *    fname = Contains the file path from where `buf` originated
  * Returns:
  *    input buffer reencoded as UTF8
  */
-private char[] UTF32ToUTF8(Endian endian)(const(char)[] buf, Module mod)
+private char[] UTF32ToUTF8(Endian endian)(const(char)[] buf, const ref Loc fname)
 {
     static if (endian == Endian.little)
         alias readNext = Port.readlongLE;
@@ -1314,7 +1315,7 @@ private char[] UTF32ToUTF8(Endian endian)(const(char)[] buf, Module mod)
 
     if (buf.length & 3)
     {
-        mod.error("odd length of UTF-32 char source %llu", cast(ulong) buf.length);
+        error(fname, "odd length of UTF-32 char source %llu", cast(ulong) buf.length);
         return null;
     }
 
@@ -1330,7 +1331,7 @@ private char[] UTF32ToUTF8(Endian endian)(const(char)[] buf, Module mod)
         {
             if (u > 0x10FFFF)
             {
-                mod.error("UTF-32 value %08x greater than 0x10FFFF", u);
+                error(fname, "UTF-32 value %08x greater than 0x10FFFF", u);
                 return null;
             }
             dbuf.writeUTF8(u);
@@ -1347,10 +1348,11 @@ private char[] UTF32ToUTF8(Endian endian)(const(char)[] buf, Module mod)
  * Params:
  *    Endian = is the buffer big/little endian
  *    buf = buffer of UTF16 data
+ *    fname = Contains the file path from where `buf` originated
  * Returns:
  *    input buffer reencoded as UTF8
  */
-private char[] UTF16ToUTF8(Endian endian)(const(char)[] buf, Module mod)
+private char[] UTF16ToUTF8(Endian endian)(const(char)[] buf, const ref Loc fname)
 {
     static if (endian == Endian.little)
         alias readNext = Port.readwordLE;
@@ -1359,7 +1361,7 @@ private char[] UTF16ToUTF8(Endian endian)(const(char)[] buf, Module mod)
 
     if (buf.length & 1)
     {
-        mod.error("odd length of UTF-16 char source %llu", cast(ulong) buf.length);
+        error(fname, "odd length of UTF-16 char source %llu", cast(ulong) buf.length);
         return null;
     }
 
@@ -1379,13 +1381,13 @@ private char[] UTF16ToUTF8(Endian endian)(const(char)[] buf, Module mod)
                 i++;
                 if (i >= eBuf.length)
                 {
-                    mod.error("surrogate UTF-16 high value %04x at end of file", u);
+                    error(fname, "surrogate UTF-16 high value %04x at end of file", u);
                     return null;
                 }
                 const u2 = readNext(&eBuf[i]);
                 if (u2 < 0xDC00 || 0xE000 <= u2)
                 {
-                    mod.error("surrogate UTF-16 low value %04x out of range", u2);
+                    error(fname, "surrogate UTF-16 low value %04x out of range", u2);
                     return null;
                 }
                 u = (u - 0xD7C0) << 10;
@@ -1393,12 +1395,12 @@ private char[] UTF16ToUTF8(Endian endian)(const(char)[] buf, Module mod)
             }
             else if (u >= 0xDC00 && u <= 0xDFFF)
             {
-                mod.error("unpaired surrogate UTF-16 value %04x", u);
+                error(fname, "unpaired surrogate UTF-16 value %04x", u);
                 return null;
             }
             else if (u == 0xFFFE || u == 0xFFFF)
             {
-                mod.error("illegal UTF-16 value %04x", u);
+                error(fname, "illegal UTF-16 value %04x", u);
                 return null;
             }
             dbuf.writeUTF8(u);
@@ -1414,7 +1416,7 @@ private char[] UTF16ToUTF8(Endian endian)(const(char)[] buf, Module mod)
  * Process the content of a source file, attempting to find which encoding
  * it is using, if it has BOM, etc...
  */
-private const(char)[] processSource (const(ubyte)[] src, Module mod)
+private const(char)[] processSource (const(ubyte)[] src, const Loc fname)
 {
     enum SourceEncoding { utf16, utf32, }
 
@@ -1489,7 +1491,7 @@ private const(char)[] processSource (const(ubyte)[] src, Module mod)
                 needsReencoding = false;
                 if (buf[0] >= 0x80)
                 {
-                    mod.error("source file must start with BOM or ASCII character, not \\x%02X", buf[0]);
+                    error(fname, "source file must start with BOM or ASCII character, not \\x%02X", buf[0]);
                     return null;
                 }
             }
@@ -1511,14 +1513,14 @@ private const(char)[] processSource (const(ubyte)[] src, Module mod)
         if (sourceEncoding == SourceEncoding.utf16)
         {
             buf = endian == Endian.little
-                  ? UTF16ToUTF8!(Endian.little)(buf, mod)
-                  : UTF16ToUTF8!(Endian.big)(buf, mod);
+                  ? UTF16ToUTF8!(Endian.little)(buf, fname)
+                  : UTF16ToUTF8!(Endian.big)(buf, fname);
         }
         else
         {
             buf = endian == Endian.little
-                  ? UTF32ToUTF8!(Endian.little)(buf, mod)
-                  : UTF32ToUTF8!(Endian.big)(buf, mod);
+                  ? UTF32ToUTF8!(Endian.little)(buf, fname)
+                  : UTF32ToUTF8!(Endian.big)(buf, fname);
         }
      }
     return buf;
