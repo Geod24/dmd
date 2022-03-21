@@ -1278,7 +1278,7 @@ class Parser(AST, Lexer = dmd.lexer.Lexer) : Lexer
      * and set `pudas`.
      *
      * Params:
-     *   pudas = An array of UDAs to append to
+     *   udas = An array of UDAs to append to
      *
      * Returns:
      *   If the attribute is builtin, the return value will be non-zero.
