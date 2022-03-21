@@ -9608,5 +9608,3 @@ private bool writeMixin(const(char)[] s, ref Loc loc)
 
     return true;
 }
-
-
