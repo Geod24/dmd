@@ -1279,12 +1279,14 @@ class Parser(AST, Lexer = dmd.lexer.Lexer) : Lexer
      *
      * Params:
      *   udas = An array of UDAs to append to
+     *   disabledMsg = The message associated with `STC.disable`, if any
      *
      * Returns:
      *   If the attribute is builtin, the return value will be non-zero.
      *   Otherwise, 0 is returned, and `pudas` will be appended to.
      */
-    private StorageClass parseAttribute(ref AST.Expressions* udas)
+    private StorageClass parseAttribute(ref AST.Expressions* udas,
+                                        out AST.Expression disabledMsg)
     {
         nextToken();
         if (token.value == TOK.identifier)
@@ -1292,11 +1294,11 @@ class Parser(AST, Lexer = dmd.lexer.Lexer) : Lexer
             // If we find a builtin attribute, we're done, return immediately.
             if (StorageClass stc = isBuiltinAtAttribute(token.ident))
             {
-                // Disabled message can take an optional message
+                // `@disabled` can take an optional message, like `deprecated`
                 if (stc == AST.STC.disable && peekNext() == TOK.leftParentheses)
                 {
                     check(TOK.leftParentheses);
-                    AST.Expression msg = parseAssignExp();
+                    disabledMsg = parseAssignExp();
                     check(TOK.rightParentheses);
                 }
                 return stc;
@@ -1381,7 +1383,8 @@ class Parser(AST, Lexer = dmd.lexer.Lexer) : Lexer
             case TOK.at:
                 {
                     AST.Expressions* udas = null;
-                    stc = parseAttribute(udas);
+                    AST.Expression disabledMsg;
+                    stc = parseAttribute(udas, disabledMsg);
                     if (udas)
                     {
                         if (pudas)

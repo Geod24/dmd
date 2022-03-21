@@ -386,6 +386,62 @@ extern (C++) final class DeprecatedDeclaration : StorageClassDeclaration
 }
 
 /***********************************************************
+ * `@disable` with an additional message
+ *
+ * Like `deprecated`, `@disable` can take an optional message,
+ * and the message-less version uses a storage class.
+ */
+extern (C++) final class DisabledDeclaration : StorageClassDeclaration
+{
+    Expression msg;         /// deprecation message
+    const(char)* msgstr;    /// cached string representation of msg
+
+    extern (D) this(Expression msg, Dsymbols* decl)
+    {
+        super(STC.disabled_, decl);
+        this.msg = msg;
+    }
+
+    override DisabledDeclaration syntaxCopy(Dsymbol s)
+    {
+        assert(!s);
+        return new DisabledDeclaration(msg.syntaxCopy(), Dsymbol.arraySyntaxCopy(decl));
+    }
+
+    /**
+     * Provides a new scope with `STC.deprecated_` and `Scope.depdecl` set
+     *
+     * Calls `StorageClassDeclaration.newScope` (as it must be called or copied
+     * in any function overriding `newScope`), then set the `Scope`'s depdecl.
+     *
+     * Returns:
+     *   Always a new scope, to use for this `DeprecatedDeclaration`'s members.
+     */
+    override Scope* newScope(Scope* sc)
+    {
+        auto scx = super.newScope(sc);
+        // The enclosing scope is deprecated as well
+        if (scx == sc)
+            scx = sc.push();
+        scx.depdecl = this;
+        return scx;
+    }
+
+    override void setScope(Scope* sc)
+    {
+        //printf("DeprecatedDeclaration::setScope() %p\n", this);
+        if (decl)
+            Dsymbol.setScope(sc); // for forward reference
+        return AttribDeclaration.setScope(sc);
+    }
+
+    override void accept(Visitor v)
+    {
+        v.visit(this);
+    }
+}
+
+/***********************************************************
  * Linkage attribute applied to Dsymbols, e.g.
  * `extern(C) void foo()`.
  *
