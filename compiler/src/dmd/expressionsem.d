@@ -2111,12 +2111,7 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
             if ((p.storageClass & (STC.in_ | STC.ref_)) == (STC.in_ | STC.ref_))
             {
                 if (!arg.isLvalue())
-                {
-                    auto v = copyToTemp(STC.exptemp, "__rvalue", arg);
-                    Expression ev = new DeclarationExp(arg.loc, v);
-                    ev = new CommaExp(arg.loc, ev, new VarExp(arg.loc, v));
-                    arg = ev.expressionSemantic(sc);
-                }
+                    arg = arg.rvalueToTemporary(eprefix, sc);
                 arg = arg.toLvalue(sc, arg);
 
                 // Look for mutable misaligned pointer, etc., in @safe mode
@@ -2418,7 +2413,7 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
             gate.dsymbolSemantic(sc);
 
             auto ae = new DeclarationExp(loc, gate);
-            eprefix = ae.expressionSemantic(sc);
+            eprefix = Expression.combine(eprefix, ae.expressionSemantic(sc));
         }
 
         for (ptrdiff_t i = start; i != end; i += step)
@@ -13980,4 +13975,48 @@ Expression toBoolean(Expression exp, Scope* sc)
             }
             return e;
     }
+}
+
+/**
+ * Turns rvalues into temporary lvalues
+ *
+ * When creating temporaries for calls, e.g. static arrays for `scope` arrays
+ * or rvalue references for `in`, we need to create a temporary that survives
+ * until the end of the expression being evaluated (per spec) but that is
+ * initialized in the order of argument evaluation (LTR).
+ * Another concern for users of this function is to ensure destruction of the
+ * temporary is correctly handled in the presence of thrown `Exception`.
+ *
+ * ---
+ * // Given the following functions:
+ * void someFunction (ref T);
+ * T rvalueFunction ();
+ * // Turns the following:
+ * someFunction(rvalueFunction());
+ * // Into the following:
+ * (T __rvalue1 = void, someFunction((__rvalue1 = rvalueFunction(), __rvalue1)));
+ * ---
+ *
+ * Params:
+ *   src = The source expression, should be a rvalue
+ *   eprefix = The expression prefix to combine the variable declaration with
+ *   sc = `Scope` for semantic analysis
+ *
+ * Returns:
+ *   A semantically analysed `CommaExp(ConstructExp, VarExp)`.
+ *
+ * See_Also: `copyToTemp`
+ */
+private Expression rvalueToTemporary (Expression src, ref Expression eprefix, Scope* sc)
+{
+    auto v = new VarDeclaration(
+        src.loc, src.type, Identifier.generateId("__rvalue"), null);
+    // Following `copyToTemp`
+    v.storage_class = STC.exptemp | STC.temp | STC.ctfe;
+    eprefix = Expression.combine(
+        eprefix, (new DeclarationExp(src.loc, v)).expressionSemantic(sc));
+    return Expression.combine(
+        new ConstructExp(src.loc, new VarExp(src.loc, v), src).expressionSemantic(sc),
+        new VarExp(src.loc, v)
+    ).expressionSemantic(sc);
 }

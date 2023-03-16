@@ -4,6 +4,8 @@ void main ()
 {
     testWithAllAttributes();
     testForeach();
+    testSideEffect();
+    //assert(test22536() == 2);
 }
 
 void testWithAllAttributes() @safe pure nothrow @nogc
@@ -116,6 +118,37 @@ void testForeach() @safe pure
         testMsg(k_loop, v_loop);
 }
 
+// test proper destruction at CTFE
+//static assert(test22536() == 2);
+
+int test22536()
+{
+    int numDtor;
+
+    struct S
+    {
+        int x;
+        this(bool throw_) { if (throw_) throw new Exception("You asked for it"); }
+        ~this() { ++numDtor; }
+    }
+
+    static void accept(in S s) {}
+    static void accept2(in S s1, in S s2) { assert(0); }
+
+    try {
+        accept2(S(true), S(false));
+    } catch (Exception exc)
+        assert(numDtor == 0);
+
+    try {
+        accept2(S(false), S(true));
+    } catch (Exception exc)
+        assert(numDtor == 1);
+
+    accept(S(false));
+    return numDtor; // 2
+}
+
 struct ValueT { int value; }
 struct RefT   { ulong[64] value; }
 
@@ -150,6 +183,54 @@ struct WithDtor
     bool* value;
     ~this() scope @safe pure nothrow @nogc {  assert(*value); }
 }
+
+int testSideEffect()
+{
+    size_t sideEffectCount;
+    static struct Struct
+    {
+        size_t value;
+        // Need a dtor, but the throw is just to avoid `nothrow` inference
+        ~this() { if (value == -1) throw new Exception(""); }
+    }
+
+    static void testInitOrder (Struct a, in Struct b, Struct c)
+    {
+        assert(a.value == 0);
+        assert(b.value == 1);
+        assert(c.value == 2);
+    }
+
+    Struct sideEffect ()
+    {
+        return Struct(sideEffectCount++);
+    }
+
+    testInitOrder(sideEffect(), sideEffect(), sideEffect());
+
+    size_t destructionCount;
+    struct CantDestruct
+    {
+        int value;
+        ~this () { ++destructionCount; assert(this.value != 0); }
+    }
+
+    static void testDestructionOrder(in CantDestruct a, in CantDestruct b, in CantDestruct c)
+    { assert(0); }
+
+    try {
+        testDestructionOrder(
+            CantDestruct(1),
+            (int i) { if (i) throw new Exception("First arg throws"); else return CantDestruct(0); }(42),
+            CantDestruct(0),
+        );
+        assert(0);
+    } catch (Exception exc) {}
+    assert(destructionCount == 1);
+
+    return 42;
+}
+static assert(testSideEffect() == 42);
 
 @safe pure nothrow @nogc:
 
