@@ -279,6 +279,10 @@ private:
     size_t framepointer;        // current frame pointer
     size_t maxStackPointer;     // most stack we've ever used
     Expression localThis;       // value of 'this', or NULL if none
+    /// Whether or not we are withing an Expression
+    /// The spec states that within an Expression, temporaries created
+    /// should survive until the end of the expression.
+    bool inExpression;
 
 public:
     size_t stackPointer()
@@ -346,11 +350,15 @@ public:
 
     void push(VarDeclaration v)
     {
-        //printf("push() %s\n", v.toChars());
+        printf("push() %s\n", v.toChars());
+        // if (auto str = v.toString())
+        //     if (str.length >= "__rvalue".length)
+        //         assert(str[0 .. "__rvalue".length] != "__rvalue");
         assert(!v.isDataseg() || v.isCTFE());
         if (v.ctfeAdrOnStack != VarDeclaration.AdrOnStackNone && v.ctfeAdrOnStack >= framepointer)
         {
             // Already exists in this frame, reuse it.
+            printf("Reusing!\n");
             values[v.ctfeAdrOnStack] = null;
             return;
         }
@@ -5042,7 +5050,7 @@ public:
 
     override void visit(CommaExp e)
     {
-        debug (LOG)
+        //debug (LOG)
         {
             printf("%s CommaExp::interpret() %s\n", e.loc.toChars(), e.toChars());
         }
@@ -5110,12 +5118,49 @@ public:
             ctfeGlobals.stack.startFrame(null);
             istate = &istateComma;
         }
+        const bool inExpression = ctfeGlobals.stack.inExpression;
+        const size_t expframepointer =  ctfeGlobals.stack.stackPointer();
+        printf("inExpression: %s, expframepointer: %llu\n", inExpression ? "True".ptr : "false".ptr, expframepointer);
+        if (!inExpression)
+            ctfeGlobals.stack.inExpression = true;
 
         void endTempStackFrame()
         {
             // If we created a temporary stack frame, end it now.
             if (istate == &istateComma)
                 ctfeGlobals.stack.endFrame();
+
+            // Finalize temporaries in this expression, if there is no parent expression
+            // Ignore `istate` because `stackPointer()` would have been 0 anyway
+            if (inExpression) return;
+
+            printf("poping: %llu / %llu (fp: %llu)\n",
+                   expframepointer, ctfeGlobals.stack.stackPointer(), ctfeGlobals.stack.framepointer);
+            assert(expframepointer <= ctfeGlobals.stack.stackPointer());
+            const toDestroy = ctfeGlobals.stack.stackPointer() - expframepointer;
+            Expression error;
+            for (size_t count = 0; count < toDestroy; ++count)
+            {
+                VarDeclaration v = ctfeGlobals.stack.vars[$ - count - 1];
+                // Run destructor, but only until one of them throws
+                if (v.edtor && !error)
+                {
+                    auto res = interpret(v.edtor, istate);
+                    // TODO: Only Errors
+                    if (auto ctfeError = res.isThrownExceptionExp())
+                    {
+                        ctfeError.generateUncaughtError();
+                        error = CTFEExp.cantexp;
+                    }
+                    if (CTFEExp.isCantExp(res))
+                        error = res;
+                }
+                if (error)
+                    result = error;
+            }
+
+            ctfeGlobals.stack.popAll(expframepointer);
+            ctfeGlobals.stack.inExpression = false;
         }
 
         result = CTFEExp.cantexp;
@@ -5153,10 +5198,13 @@ public:
         else
         {
             UnionExp ue = void;
+            printf("NOT WTF\n");
             auto e1 = interpret(&ue, e.e1, istate, CTFEGoal.Nothing);
             if (exceptionOrCant(e1))
                 return endTempStackFrame();
+            printf("Result: %s\n", e1.toChars());
         }
+        printf("Interprt\n");
         result = interpret(pue, e.e2, istate, goal);
         return endTempStackFrame();
     }

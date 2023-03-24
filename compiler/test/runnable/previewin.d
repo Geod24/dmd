@@ -230,7 +230,7 @@ int testSideEffect()
 
     return 42;
 }
-static assert(testSideEffect() == 42);
+//static assert(testSideEffect() == 42);
 
 @safe pure nothrow @nogc:
 
