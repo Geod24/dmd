@@ -624,7 +624,9 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, out Param 
                     buf ~= `case "`~t.name~`":`;
                     if (t.deprecated_)
                         buf ~= "eSink.deprecation(Loc.initial, \"`-"~name~"="~t.name~"` no longer has any effect.\"); ";
-                    buf ~= `setFlagFor(name, params.`~t.paramName~`); return true;`;
+                    if (t.paramName.length)
+                        buf ~= `setFlagFor(name, params.`~t.paramName~`); `;
+                    buf ~= `return true;`;
                 }
                 return buf;
             }
@@ -1307,7 +1309,12 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, out Param 
             mixin(checkOptionsMixin("preview",
                 "`-preview=<name>` requires a name"));
 
-            if (!parseCLIOption!("preview", Usage.previews)(params, arg))
+            const(char)[] previewName = arg[len .. $];
+            if (previewName == "in")
+            {
+                eSink.deprecation(Loc.initial, "`-preview=in` is now the default behavior and has no effect");
+            }
+            else if (!parseCLIOption!("preview", Usage.previews)(params, arg))
             {
                 error("preview `%s` is invalid", p);
                 params.help.preview = true;

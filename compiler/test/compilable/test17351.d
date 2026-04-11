@@ -1,4 +1,4 @@
-// PERMUTE_ARGS: -preview=in
+// PERMUTE_ARGS: -revert=in
 bool fun(S)(ref S[3] a) { assert(a == [42, 84, 169]); return true; }
 bool fun2(S)(ref S a) { return true; }
 void main()

@@ -7,6 +7,7 @@ Revertable language changes listed by -revert=name:
   =all              Enables all available revertable language changes
   =dip25            revert DIP25 changes [DEPRECATED] (https://github.com/dlang/DIPs/blob/master/DIPs/archive/DIP25.md)
   =dip1000          revert DIP1000 changes (Scoped Pointers) (https://github.com/dlang/DIPs/blob/master/DIPs/other/DIP1000.md)
+  =in               revert `in` parameter semantics to legacy behavior (https://dlang.org/spec/function.html#in-params)
   =intpromote       revert integral promotions for unary + - ~ operators
   =dtorfields       don't destruct fields of partially constructed objects
 ----

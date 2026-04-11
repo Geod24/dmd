@@ -230,7 +230,7 @@ struct Param
                                  // https://github.com/WalterBright/documents/blob/38f0a846726b571f8108f6e63e5e217b91421c86/safer.md
 
     FeatureState noSharedAccess; // read/write access to shared memory objects
-    d_bool previewIn;              // `in` means `[ref] scope const`, accepts rvalues
+    d_bool revertIn;               // `-revert=in` requests legacy `in` parameter semantics
     d_bool inclusiveInContracts;   // 'in' contracts of overridden methods must be a superset of parent contract
     d_bool shortenedMethods;       // allow => in normal function declarations
     d_bool fixImmutableConv;       // error on unsound immutable conversion - https://github.com/dlang/dmd/pull/14070
@@ -335,7 +335,7 @@ struct CompileEnv
     DString time;
     DString vendor;
     DString timestamp;
-    d_bool previewIn;
+    d_bool revertIn;
     d_bool transitionIn;
     d_bool ddocOutput;
     d_bool masm;

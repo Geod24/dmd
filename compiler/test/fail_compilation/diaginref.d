@@ -1,9 +1,9 @@
 /*
-REQUIRED_ARGS: -preview=in
+REQUIRED_ARGS: -de
 TEST_OUTPUT:
 ---
-fail_compilation/diaginref.d(11): Error: attribute `ref` is redundant with previously-applied `in`
-fail_compilation/diaginref.d(13): Error: attribute `in` cannot be added after `ref`: remove `ref`
+fail_compilation/diaginref.d(11): Deprecation: attribute pair `in ref` is deprecated, use `in` instead
+fail_compilation/diaginref.d(13): Deprecation: attribute pair `ref in` is deprecated, use `in` instead
 ---
  */
 

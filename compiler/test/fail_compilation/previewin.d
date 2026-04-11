@@ -1,5 +1,5 @@
 /*
-REQUIRED_ARGS: -preview=in -preview=dip1000
+REQUIRED_ARGS: -preview=dip1000
 TEST_OUTPUT:
 ----
 fail_compilation/previewin.d(4): Error: function `takeFunction` is not callable using argument types `(void function(real x) pure nothrow @nogc @safe)`

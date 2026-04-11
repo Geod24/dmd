@@ -1,5 +1,5 @@
 /*
-REQUIRED_ARGS: -preview=in -preview=dip1000
+REQUIRED_ARGS: -preview=dip1000
 TEST_OUTPUT:
 ---
 fail_compilation/previewin2.d(1): Error: cannot use `in` parameters with `extern(C)` functions

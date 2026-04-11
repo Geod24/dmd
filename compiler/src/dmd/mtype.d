@@ -2485,6 +2485,15 @@ extern (C++) final class Parameter : ASTNode
         STC thisSTC = this.storageClass;
         STC otherSTC = p.storageClass;
 
+        const stcMask = STC.ref_ | STC.out_ | STC.lazy_ | STC.scope_ | STC.in_;
+
+        // By-value `in` remains compatible with plain `const`, but explicit
+        // `scope`/`ref` forms are still distinct.
+        if ((thisSTC & STC.constscoperef) && !(thisSTC & STC.ref_) && !(otherSTC & (stcMask | STC.constscoperef)))
+            thisSTC &= ~(STC.constscoperef | STC.in_);
+        if ((otherSTC & STC.constscoperef) && !(otherSTC & STC.ref_) && !(thisSTC & (stcMask | STC.constscoperef)))
+            otherSTC &= ~(STC.constscoperef | STC.in_);
+
         if (thisSTC & STC.constscoperef)
             thisSTC |= STC.scope_;
         if (otherSTC & STC.constscoperef)

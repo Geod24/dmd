@@ -117,7 +117,7 @@ private struct Previews
         this.dip25 = params.useDIP25 == FeatureState.enabled;
         this.fixAliasThis = params.fixAliasThis;
         this.fixImmutableConv = params.fixImmutableConv;
-        this.in_ = params.previewIn;
+        this.in_ = !params.revertIn;
         this.inclusiveInContracts = params.inclusiveInContracts;
         this.noSharedAccess = params.noSharedAccess == FeatureState.enabled;
         this.rvalueRefParam = params.rvalueRefParam == FeatureState.enabled;

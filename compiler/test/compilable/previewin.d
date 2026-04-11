@@ -1,4 +1,4 @@
-/* REQUIRED_ARGS: -preview=dip1000 -preview=in -mcpu=native
+/* REQUIRED_ARGS: -preview=dip1000 -mcpu=native
  */
 
 import core.stdc.time;

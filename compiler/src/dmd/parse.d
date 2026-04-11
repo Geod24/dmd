@@ -1272,18 +1272,17 @@ class Parser(AST, Lexer = dmd.lexer.Lexer) : Lexer
         {
             if (added & STC.const_)
                 error("attribute `const` is redundant with previously-applied `in`");
-            else if (compileEnv.previewIn)
+            else if (!compileEnv.revertIn)
             {
-                error("attribute `%s` is redundant with previously-applied `in`",
-                      (orig & STC.scope_) ? "scope".ptr : "ref".ptr);
-            }
-            else if (added & STC.ref_)
-            {
-                // accept using `in ref` for legacy compatibility
+                if (added & STC.ref_)
+                    deprecation("attribute pair `in ref` is deprecated, use `in` instead");
+                else
+                    error("attribute `%s` is redundant with previously-applied `in`",
+                        (orig & STC.scope_) ? "scope".ptr : "ref".ptr);
             }
             else
             {
-                error("attribute `scope` cannot be applied with `in`, use `-%spreview=in` instead", compileEnv.switchPrefix.ptr);
+                error("attribute `scope` cannot be applied with `in` while using `-%srevert=in`, remove the `-%srevert=in` switch", compileEnv.switchPrefix.ptr, compileEnv.switchPrefix.ptr);
             }
             return orig;
         }
@@ -1292,20 +1291,21 @@ class Parser(AST, Lexer = dmd.lexer.Lexer) : Lexer
         {
             if (orig & STC.const_)
                 error("attribute `in` cannot be added after `const`: remove `const`");
-            else if (compileEnv.previewIn)
+            else if (!compileEnv.revertIn)
             {
-                // Windows `printf` does not support `%1$s`
-                const(char*) stc_str = (orig & STC.scope_) ? "scope".ptr : "ref".ptr;
-                error(token.loc, "attribute `in` cannot be added after `%s`: remove `%s`",
-                      stc_str, stc_str);
-            }
-            else if (orig & STC.ref_)
-            {
-                // accept using `in ref` for legacy compatibility
+                if (orig & STC.ref_)
+                    deprecation("attribute pair `ref in` is deprecated, use `in` instead");
+                else
+                {
+                    // Windows `printf` does not support `%1$s`
+                    const(char*) stc_str = (orig & STC.scope_) ? "scope".ptr : "ref".ptr;
+                    error(token.loc, "attribute `in` cannot be added after `%s`: remove `%s`",
+                        stc_str, stc_str);
+                }
             }
             else
             {
-                error("attribute `in` cannot be added after `scope`: remove `scope` and use `-%spreview=in`", compileEnv.switchPrefix.ptr);
+                error("attribute `in` cannot be added after `scope` while using `-%srevert=in`, remove `scope` or remove `-%srevert=in`", compileEnv.switchPrefix.ptr, compileEnv.switchPrefix.ptr);
             }
             return orig;
         }
@@ -2972,7 +2972,7 @@ class Parser(AST, Lexer = dmd.lexer.Lexer) : Lexer
                     if (compileEnv.transitionIn)
                         eSink.message(scanloc, "Usage of 'in' on parameter");
                     stc = STC.in_;
-                    if (compileEnv.previewIn)
+                    if (!compileEnv.revertIn)
                         stc |= STC.constscoperef;
                     goto L2;
 

@@ -1,4 +1,4 @@
-// REQUIRED_ARGS: -preview=in
+// REQUIRED_ARGS:
 // PERMUTE_ARGS: -g
 // EXTRA_CPP_SOURCES: cppb.cpp
 // EXTRA_FILES: extra-files/cppb.h

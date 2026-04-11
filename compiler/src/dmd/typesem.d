@@ -3985,7 +3985,7 @@ Type typeSemantic(Type type, Loc loc, Scope* sc)
                     continue;
                 }
 
-                // -preview=in: Always add `ref` when used with `extern(C++)` functions
+                // New `in` semantics: always add `ref` for `extern(C++)` functions
                 // Done here to allow passing opaque types with `in`
                 if ((fparam.storageClass & (STC.in_ | STC.ref_)) == STC.in_)
                 {
@@ -4116,7 +4116,7 @@ Type typeSemantic(Type type, Loc loc, Scope* sc)
                 // Remove redundant storage classes for type, they are already applied
                 fparam.storageClass &= ~(STC.TYPECTOR);
 
-                // -preview=in: add `ref` storage class to suited `in` params
+                // Add `ref` storage class to suited `in` params
                 if ((fparam.storageClass & (STC.constscoperef | STC.ref_)) == STC.constscoperef)
                 {
                     auto ts = t.baseElemOf().isTypeStruct();

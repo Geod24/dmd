@@ -1,0 +1,13 @@
+Enable `=preview=in` parameter semantics by default
+
+`in` parameters now defaults to the `-preview=in` behavior by default: they will
+behave as `const scope ref`, accept rvalues, and keep ABI-aware pass-by-ref
+behavior where appropriate.
+
+The `-preview=in` switch is still accepted but will now yield a deprecation message.
+A new `-revert=in` flag was introduced to restore the legacy `in` behavior.
+
+This default switch reflects the long transition period of the feature:
+- `-preview=in` was introduced in D 2.092.0 (released 2020-05-10, $(LINK2 https://dlang.org/changelog/2.092.0.html#preview-in, changelog)).
+- The final behavior (`scope const ref` with rvalue support) was introduced in D 2.094.0
+ (released 2020-09-22, $(LINK2 https://dlang.org/changelog/2.094.0.html#preview-in, changelog)).

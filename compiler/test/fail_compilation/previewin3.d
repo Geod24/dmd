@@ -1,5 +1,5 @@
 /*
-REQUIRED_ARGS: -preview=in -preview=dip1000
+REQUIRED_ARGS: -preview=dip1000
 TEST_OUTPUT:
 ----
 fail_compilation/previewin3.d(2): Error: function `foo` is not callable using argument types `(int)`

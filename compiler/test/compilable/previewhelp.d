@@ -15,7 +15,6 @@ Upcoming language changes listed by -preview=name:
   =rvaluerefparam   enable rvalue arguments to ref parameters (https://gist.github.com/andralex/e5405a5d773f07f73196c05f8339435a)
   =safer            more safety checks by default (https://github.com/WalterBright/documents/blob/38f0a846726b571f8108f6e63e5e217b91421c86/safer.md)
   =nosharedaccess   disable access to shared memory objects (https://dlang.org/spec/const3.html#shared)
-  =in               `in` on parameters means `scope const [ref]` and accepts rvalues (https://dlang.org/spec/function.html#in-params)
   =inclusiveincontracts 'in' contracts of overridden methods must be a superset of parent contract (https://dlang.org/changelog/2.095.0.html#inclusive-incontracts)
   =fixImmutableConv disallow `void[]` data from holding immutable data (https://dlang.org/changelog/2.101.0.html#dmd.fix-immutable-conv, https://issues.dlang.org/show_bug.cgi?id=17148)
   =systemVariables  disable access to variables marked '@system' from @safe code (https://dlang.org/spec/attribute.html#system-variables)

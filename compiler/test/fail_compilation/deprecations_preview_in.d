@@ -1,5 +1,5 @@
 /*
-REQUIRED_ARGS: -de
+REQUIRED_ARGS: -de -revert=in
 TEST_OUTPUT:
 ---
 fail_compilation/deprecations_preview_in.d(1): Deprecation: using `in` parameters with `extern(C)` functions is deprecated

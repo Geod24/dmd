@@ -1219,7 +1219,7 @@ extern (C++) struct Target
 
     /**
      * Decides whether an `in` parameter of the specified POD type is to be
-     * passed by reference or by value. To be used with `-preview=in` only!
+     * passed by reference or by value when using the new `in` semantics.
      * Params:
      *  t = type of the `in` parameter, must be a POD
      * Returns:
@@ -1233,8 +1233,8 @@ extern (C++) struct Target
             if (os == Target.OS.Windows)
             {
                 // Win64 special case: by-value for slices and delegates due to
-                // high number of usages in druntime/Phobos (compiled without
-                // -preview=in but supposed to link against -preview=in code)
+                // high number of usages in druntime/Phobos built with legacy
+                // `in` semantics but linked with new-semantics code.
                 const ty = t.toBasetype().ty;
                 if (ty == TY.Tarray || ty == TY.Tdelegate)
                     return false;

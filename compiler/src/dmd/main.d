@@ -192,7 +192,7 @@ private int tryMain(const(char)[][] argv, out Param params)
     if (parseCommandlineAndConfig(argv, params, files))
         return EXIT_FAILURE;
 
-    global.compileEnv.previewIn        = params.previewIn;
+    global.compileEnv.revertIn         = params.revertIn;
     global.compileEnv.transitionIn     = params.v.vin;
     global.compileEnv.ddocOutput       = params.ddoc.doOutput;
 
